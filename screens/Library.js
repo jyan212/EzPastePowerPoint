@@ -4,6 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import SavedImage from '../components/SavedImage';
 import { useIsFocused } from '@react-navigation/native';
 import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system';
+import Preview from '../components/Preview';
 
 const { WIDTH , HEIGHT } = Dimensions.get('window')
 const convertStringToJsonArray = (imgs) => {
@@ -27,7 +29,7 @@ const convertStringToJsonArray = (imgs) => {
 }
 export default function Library(){
     const [isPreview, togglePreview] = useState(false);
-    const [previewId, setPreviewId] = useState(null);
+    const [previewImg, setPreviewImg] = useState(null);
     const [storedImagesUri, setStoredImagesUri] = useState([])
     const focused = useIsFocused();
     useEffect(() => {
@@ -47,7 +49,7 @@ export default function Library(){
     },[focused]);
 
     const renderItem = ({ item }) => ((
-      <SavedImage storedImgUri={item.uri} date={item.modificationTime} showPreview={() => { showPreview(item.id) }}keys={item.id} size={item.width+"*"+item.height} deleteItem={deleteItem}></SavedImage>
+      <SavedImage storedImgUri={item.uri} date={item.modificationTime} showPreview={() => { showPreview(item.id) }} keys={item.id} size={item.width+"*"+item.height} deleteItem={deleteItem}></SavedImage>
    ))
 
     const deleteItem = (id) => {
@@ -69,8 +71,21 @@ export default function Library(){
     }
     
     const showPreview = (id) => {
+      storedImagesUri.forEach( async (item) => {
+        try {
+          if ( item.id === id ) {
+            const img = await FileSystem.readAsStringAsync(item.uri,{ encoding: FileSystem.EncodingType.Base64 });
+            setPreviewImg(`data:image/png;base64,${img}`);
+          }
+        } catch (err) {
+            console.log(err);
+        }
+      })
       togglePreview(!isPreview);
+    }
 
+    const switchView = () => {
+      togglePreview(!isPreview);
     }
     const test = async () => {
         try {
@@ -89,10 +104,20 @@ export default function Library(){
               <View style={styles.wrapper}>
                 <Text>There are no saved images in this directory</Text>
               </View> :
-            isPreview && previewId != null ? 
+            isPreview && previewImg != null ? 
             <Preview 
-            
-            ></Preview>:
+              photo={previewImg} 
+              retakeImage={()=>{ 
+                setPreviewImg(null);
+                togglePreview(false);
+              }}
+              switchView={switchView}
+              changeCode={()=>{console.log("test")}}
+              navigation={null}
+              hasMediaLibraryPermission={true}
+              prevUser="TEST"
+              prevPairCode="TEST"
+              ></Preview>:
             (
               <FlatList
                 data={storedImagesUri}
